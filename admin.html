@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📬 กล่องข้อความ — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Sarabun:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a10;
+    --panel: #10101a;
+    --card: #141420;
+    --border: #1e1e30;
+    --accent: #c084fc;
+    --accent2: #818cf8;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --success: #34d399;
+    --danger: #f87171;
+    --unread: rgba(192,132,252,0.08);
+    --unread-border: rgba(192,132,252,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    min-height: 100vh;
+    font-family: 'Sarabun', sans-serif;
+    color: var(--text);
+  }
+
+  /* Login Overlay */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .login-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    width: 360px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(192,132,252,0.1);
+  }
+
+  .login-card h2 {
+    font-family: 'Kanit', sans-serif;
+    font-size: 22px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #c084fc, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .login-card p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  .login-card input {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 16px;
+    outline: none;
+    text-align: center;
+    letter-spacing: 0.3em;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+  }
+
+  .login-card input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(192,132,252,0.15);
+  }
+
+  .login-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #c084fc, #818cf8);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: 'Kanit', sans-serif;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(192,132,252,0.35); }
+
+  .login-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+
+  /* Main Admin Layout */
+  .admin-wrap { display: none; }
+
+  /* Sidebar */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0;
+    width: 260px; height: 100vh;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .sidebar-logo {
+    font-family: 'Kanit', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #c084fc, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .stat-boxes {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stat-box {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .stat-box .stat-num {
+    font-family: 'Kanit', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-box .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-box.unread .stat-num { color: var(--accent); }
+  .stat-box.total .stat-num { color: var(--accent2); }
+
+  .sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+  }
+
+  .action-btn {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .action-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); border-color: rgba(255,255,255,0.1); }
+  .action-btn.danger:hover { border-color: rgba(248,113,113,0.4); color: var(--danger); }
+
+  /* Main content */
+  .main-content {
+    margin-left: 260px;
+    padding: 36px 36px 36px 36px;
+    min-height: 100vh;
+  }
+
+  .page-header {
+    margin-bottom: 28px;
+  }
+
+  .page-header h1 {
+    font-family: 'Kanit', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .page-header p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .filter-btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn.active {
+    background: linear-gradient(135deg, #c084fc, #818cf8);
+    border-color: transparent;
+    color: white;
+  }
+
+  .filter-btn:not(.active):hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Messages list */
+  .messages-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .msg-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .msg-card.unread {
+    background: var(--unread);
+    border-color: var(--unread-border);
+  }
+
+  .msg-card.unread::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 3px; height: 60%;
+    background: linear-gradient(180deg, #c084fc, #818cf8);
+    border-radius: 0 2px 2px 0;
+  }
+
+  .msg-card:hover {
+    border-color: rgba(192,132,252,0.4);
+    transform: translateX(4px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .msg-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .msg-sender {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c084fc, #818cf8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    font-family: 'Kanit', sans-serif;
+  }
+
+  .sender-name {
+    font-weight: 400;
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  .unread-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px rgba(192,132,252,0.6);
+    flex-shrink: 0;
+  }
+
+  .msg-time {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .msg-preview {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding-left: 46px;
+  }
+
+  .msg-card.unread .msg-preview {
+    color: rgba(226,232,240,0.85);
+  }
+
+  /* Message Detail Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open {
+    display: flex;
+    animation: fadeModal 0.2s ease;
+  }
+
+  @keyframes fadeModal {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .modal-box {
+    background: var(--card);
+    border: 1px solid rgba(192,132,252,0.3);
+    border-radius: 20px;
+    padding: 36px;
+    width: 100%;
+    max-width: 540px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(192,132,252,0.1);
+    animation: slideModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+
+  @keyframes slideModal {
+    from { transform: scale(0.9) translateY(20px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    border-radius: 8px;
+    width: 32px; height: 32px;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .modal-close:hover { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+  .modal-sender-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .modal-avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c084fc, #818cf8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    font-family: 'Kanit', sans-serif;
+  }
+
+  .modal-meta h3 {
+    font-family: 'Kanit', sans-serif;
+    font-size: 18px;
+    font-weight: 400;
+    margin-bottom: 4px;
+  }
+
+  .modal-meta span {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .modal-message {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    font-size: 16px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    margin-bottom: 20px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .modal-del-btn {
+    padding: 10px 18px;
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 10px;
+    color: var(--danger);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal-del-btn:hover { background: rgba(248,113,113,0.2); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    display: none;
+  }
+
+  .empty-state .empty-icon { font-size: 56px; margin-bottom: 16px; display: block; }
+  .empty-state h3 { font-family: 'Kanit', sans-serif; font-size: 20px; margin-bottom: 8px; color: var(--muted); }
+  .empty-state p { font-size: 14px; color: var(--muted); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div style="font-size:42px;margin-bottom:12px;">🔐</div>
+    <h2>กล่องข้อความ</h2>
+    <p>ใส่รหัสผ่านเพื่อเข้าสู่หลังบ้าน</p>
+    <input type="password" id="pwInput" placeholder="••••••••" onkeydown="if(event.key==='Enter') checkLogin()">
+    <button class="login-btn" onclick="checkLogin()">🔓 เข้าสู่ระบบ</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div class="admin-wrap" id="adminWrap">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">📬 Inbox</div>
+
+    <div class="stat-boxes">
+      <div class="stat-box unread">
+        <div class="stat-num" id="unreadCount">0</div>
+        <div class="stat-label">ยังไม่ได้อ่าน</div>
+      </div>
+      <div class="stat-box total">
+        <div class="stat-num" id="totalCount">0</div>
+        <div class="stat-label">ข้อความทั้งหมด</div>
+      </div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="action-btn" onclick="markAllRead()">✅ &nbsp;อ่านทั้งหมดแล้ว</button>
+      <button class="action-btn" onclick="window.open('index.html','_blank')">💌 &nbsp;ดูหน้าส่งข้อความ</button>
+      <button class="action-btn" onclick="logout()">🚪 &nbsp;ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="page-header">
+      <h1>📬 ข้อความทั้งหมด</h1>
+      <p>คลิกที่ข้อความเพื่ออ่านรายละเอียด</p>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" id="filterAll" onclick="setFilter('all')">ทั้งหมด</button>
+      <button class="filter-btn" id="filterUnread" onclick="setFilter('unread')">ยังไม่ได้อ่าน</button>
+    </div>
+
+    <div class="messages-grid" id="messagesList"></div>
+    <div class="empty-state" id="emptyState">
+      <span class="empty-icon">📭</span>
+      <h3>ยังไม่มีข้อความ</h3>
+      <p>เมื่อเพื่อนส่งข้อความมา จะปรากฏที่นี่</p>
+    </div>
+  </div>
+</div>
+
+<!-- Message Detail Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box" id="modalBox">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-sender-info">
+      <div class="modal-avatar" id="modalAvatar">👤</div>
+      <div class="modal-meta">
+        <h3 id="modalName">-</h3>
+        <span id="modalTime">-</span>
+      </div>
+    </div>
+    <div class="modal-message" id="modalMessage"></div>
+    <div class="modal-actions">
+      <button class="modal-del-btn" id="modalDelBtn">🗑️ ลบข้อความนี้</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_PASSWORD = 'pancakeismygf';
+
+  function checkLogin() {
+    const pw = document.getElementById('pwInput').value;
+    if (pw === ADMIN_PASSWORD) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('adminWrap').style.display = 'flex';
+      sessionStorage.setItem('adminLoggedIn', '1');
+      renderMessages();
+    } else {
+      const err = document.getElementById('loginError');
+      err.textContent = '❌ รหัสผ่านไม่ถูกต้อง';
+      document.getElementById('pwInput').style.borderColor = '#f87171';
+      setTimeout(() => {
+        err.textContent = '';
+        document.getElementById('pwInput').style.borderColor = '';
+      }, 3000);
+    }
+  }
+
+  function logout() {
+    sessionStorage.removeItem('adminLoggedIn');
+    location.reload();
+  }
+
+  if (sessionStorage.getItem('adminLoggedIn')) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('adminWrap').style.display = 'flex';
+  }
+
+  let currentFilter = 'all';
+  let currentId = null;
+
+  function getMessages() {
+    return JSON.parse(localStorage.getItem('inbox') || '[]').reverse();
+  }
+
+  function renderMessages() {
+    const msgs = getMessages();
+    const filtered = currentFilter === 'unread' ? msgs.filter(m => !m.read) : msgs;
+
+    const list = document.getElementById('messagesList');
+    const empty = document.getElementById('emptyState');
+    list.innerHTML = '';
+
+    const unread = msgs.filter(m => !m.read).length;
+    document.getElementById('unreadCount').textContent = unread;
+    document.getElementById('totalCount').textContent = msgs.length;
+
+    if (filtered.length === 0) {
+      empty.style.display = 'block';
+      empty.querySelector('h3').textContent = currentFilter === 'unread' ? 'ไม่มีข้อความที่ยังไม่ได้อ่าน' : 'ยังไม่มีข้อความ';
+      empty.querySelector('p').textContent = currentFilter === 'unread' ? 'เธออ่านครบหมดแล้ว! 🎉' : 'เมื่อเพื่อนส่งข้อความมา จะปรากฏที่นี่';
+      return;
+    }
+
+    empty.style.display = 'none';
+
+    filtered.forEach(msg => {
+      const card = document.createElement('div');
+      card.className = `msg-card ${msg.read ? '' : 'unread'}`;
+      card.onclick = () => openModal(msg.id);
+
+      const initial = msg.name === 'ไม่ระบุตัวตน' ? '?' : msg.name.charAt(0).toUpperCase();
+
+      card.innerHTML = `
+        <div class="msg-card-header">
+          <div class="msg-sender">
+            <div class="avatar">${initial}</div>
+            <span class="sender-name">${msg.name}</span>
+            ${!msg.read ? '<div class="unread-dot"></div>' : ''}
+          </div>
+          <div class="msg-time">${msg.time}</div>
+        </div>
+        <div class="msg-preview">${escHtml(msg.message)}</div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function escHtml(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function setFilter(f) {
+    currentFilter = f;
+    document.getElementById('filterAll').classList.toggle('active', f === 'all');
+    document.getElementById('filterUnread').classList.toggle('active', f === 'unread');
+    renderMessages();
+  }
+
+
+  function openModal(id) {
+    const msgs = JSON.parse(localStorage.getItem('inbox') || '[]');
+    const msg = msgs.find(m => m.id === id);
+    if (!msg) return;
+
+    currentId = id;
+
+
+    msg.read = true;
+    localStorage.setItem('inbox', JSON.stringify(msgs));
+
+    const initial = msg.name === 'ไม่ระบุตัวตน' ? '?' : msg.name.charAt(0).toUpperCase();
+    document.getElementById('modalAvatar').textContent = initial;
+    document.getElementById('modalName').textContent = msg.name;
+    document.getElementById('modalTime').textContent = msg.time;
+    document.getElementById('modalMessage').textContent = msg.message;
+    document.getElementById('modalDelBtn').onclick = () => deleteMessage(id);
+
+    document.getElementById('modal').classList.add('open');
+    renderMessages();
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    currentId = null;
+  }
+
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  function deleteMessage(id) {
+    if (!confirm('ลบข้อความนี้?')) return;
+    const msgs = JSON.parse(localStorage.getItem('inbox') || '[]').filter(m => m.id !== id);
+    localStorage.setItem('inbox', JSON.stringify(msgs));
+    closeModal();
+    renderMessages();
+  }
+
+  function markAllRead() {
+    const msgs = JSON.parse(localStorage.getItem('inbox') || '[]');
+    msgs.forEach(m => m.read = true);
+    localStorage.setItem('inbox', JSON.stringify(msgs));
+    renderMessages();
+  }
+
+  function clearAll() {
+    if (!confirm('ลบข้อความทั้งหมด? ไม่สามารถกู้คืนได้')) return;
+    localStorage.removeItem('inbox');
+    renderMessages();
+  }
+
+
+  if (sessionStorage.getItem('adminLoggedIn')) renderMessages();
+
+
+  setInterval(() => {
+    if (sessionStorage.getItem('adminLoggedIn') && !document.getElementById('modal').classList.contains('open')) {
+      renderMessages();
+    }
+  }, 10000);
+</script>
+</body>
+</html>
