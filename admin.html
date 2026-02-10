@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📬 กล่องข้อความ — Admin</title>
+<title>📬 กล่องข้อความ — Admin (Secure)</title>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&family=Sarabun:wght@300;400&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -77,8 +77,6 @@
     font-family: 'Sarabun', sans-serif;
     font-size: 16px;
     outline: none;
-    text-align: center;
-    letter-spacing: 0.3em;
     margin-bottom: 16px;
     transition: all 0.3s;
   }
@@ -102,6 +100,7 @@
   }
 
   .login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(192,132,252,0.35); }
+  .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   .login-error {
     color: var(--danger);
@@ -197,7 +196,6 @@
   }
 
   .action-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); border-color: rgba(255,255,255,0.1); }
-  .action-btn.danger:hover { border-color: rgba(248,113,113,0.4); color: var(--danger); }
 
   /* Main content */
   .main-content {
@@ -496,10 +494,11 @@
 <div class="login-overlay" id="loginOverlay">
   <div class="login-card">
     <div style="font-size:42px;margin-bottom:12px;">🔐</div>
-    <h2>กล่องข้อความ</h2>
-    <p>ใส่รหัสผ่านเพื่อเข้าสู่หลังบ้าน</p>
-    <input type="password" id="pwInput" placeholder="••••••••" onkeydown="if(event.key==='Enter') checkLogin()">
-    <button class="login-btn" onclick="checkLogin()">🔓 เข้าสู่ระบบ</button>
+    <h2>กล่องข้อความ (Secure)</h2>
+    <p>Login ด้วย Email และ Password</p>
+    <input type="email" id="emailInput" placeholder="อีเมล" autocomplete="email">
+    <input type="password" id="passwordInput" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter') checkLogin()">
+    <button class="login-btn" id="loginBtn" onclick="checkLogin()">🔓 เข้าสู่ระบบ</button>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
@@ -508,7 +507,7 @@
 <div class="admin-wrap" id="adminWrap">
   <!-- Sidebar -->
   <div class="sidebar">
-    <div class="sidebar-logo">📬 Inbox</div>
+    <div class="sidebar-logo">📬 Inbox (Secure)</div>
 
     <div class="stat-boxes">
       <div class="stat-box unread">
@@ -568,13 +567,12 @@
 </div>
 
 <script>
-  // ประกาศตัวแปร Global ก่อน
-  const ADMIN_PASSWORD = 'pancakeismygf';
+  // Global variables
   let cachedMessages = [];
   let currentFilter = 'all';
   let currentId = null;
 
-  // ประกาศ functions ทั้งหมดก่อน
+  // Functions
   function escHtml(t) {
     return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
@@ -691,31 +689,67 @@
     }
   }
 
-  function checkLogin() {
-    const pw = document.getElementById('pwInput').value;
-    if (pw === ADMIN_PASSWORD) {
-      console.log('✅ Login successful');
+  async function checkLogin() {
+    const email = document.getElementById('emailInput').value;
+    const password = document.getElementById('passwordInput').value;
+    const loginBtn = document.getElementById('loginBtn');
+    const errorDiv = document.getElementById('loginError');
+
+    if (!email || !password) {
+      errorDiv.textContent = '❌ กรุณากรอกอีเมลและรหัสผ่าน';
+      return;
+    }
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = '🔄 กำลังเข้าสู่ระบบ...';
+    errorDiv.textContent = '';
+
+    try {
+      // Login ด้วย Firebase Authentication
+      const userCredential = await window.firebaseSignIn(email, password);
+      console.log('✅ Login successful:', userCredential.user.email);
+      
       document.getElementById('loginOverlay').style.display = 'none';
       document.getElementById('adminWrap').style.display = 'flex';
-      sessionStorage.setItem('adminLoggedIn', '1');
       
       // Start Firebase listener
       if (window.startFirebaseListener) {
         window.startFirebaseListener();
       }
-    } else {
-      const err = document.getElementById('loginError');
-      err.textContent = '❌ รหัสผ่านไม่ถูกต้อง';
-      document.getElementById('pwInput').style.borderColor = '#f87171';
-      setTimeout(() => {
-        err.textContent = '';
-        document.getElementById('pwInput').style.borderColor = '';
-      }, 3000);
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      let errorMessage = 'เกิดข้อผิดพลาด';
+      
+      switch(error.code) {
+        case 'auth/invalid-email':
+          errorMessage = '❌ อีเมลไม่ถูกต้อง';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = '❌ ไม่พบผู้ใช้นี้';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = '❌ รหัสผ่านไม่ถูกต้อง';
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = '❌ อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = '❌ ลองมากเกินไป กรุณารอสักครู่';
+          break;
+        default:
+          errorMessage = `❌ ${error.message}`;
+      }
+      
+      errorDiv.textContent = errorMessage;
+      loginBtn.disabled = false;
+      loginBtn.textContent = '🔓 เข้าสู่ระบบ';
     }
   }
 
-  function logout() {
-    sessionStorage.removeItem('adminLoggedIn');
+  async function logout() {
+    if (window.firebaseSignOut) {
+      await window.firebaseSignOut();
+    }
     location.reload();
   }
 
@@ -723,18 +757,13 @@
   document.getElementById('modal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
   });
-
-  // Check if already logged in
-  if (sessionStorage.getItem('adminLoggedIn')) {
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('adminWrap').style.display = 'flex';
-  }
 </script>
 
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
   import { getDatabase, ref, onValue, update, remove } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 
   // Firebase configuration
   const firebaseConfig = {
@@ -751,6 +780,7 @@
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const database = getDatabase(app);
+  const auth = getAuth(app);
 
   console.log('✅ Firebase initialized');
 
@@ -759,6 +789,8 @@
   window.firebaseRef = ref;
   window.firebaseUpdate = update;
   window.firebaseRemove = remove;
+  window.firebaseSignIn = (email, password) => signInWithEmailAndPassword(auth, email, password);
+  window.firebaseSignOut = () => signOut(auth);
 
   // Start listening to messages
   window.startFirebaseListener = function() {
@@ -770,7 +802,6 @@
       console.log('📨 Firebase data received:', data);
       
       if (data) {
-        // อัพเดทตัวแปร cachedMessages โดยตรง (ไม่ใช้ window.cachedMessages)
         cachedMessages = Object.entries(data).map(([key, val]) => ({
           id: key,
           ...val
@@ -780,18 +811,29 @@
       }
       
       console.log('💾 Cached messages updated:', cachedMessages);
-      
-      // เรียก renderMessages ทันที
       renderMessages();
     }, (error) => {
       console.error('❌ Firebase error:', error);
+      if (error.code === 'PERMISSION_DENIED') {
+        alert('⚠️ คุณไม่มีสิทธิ์เข้าถึงข้อมูล กรุณา Login ใหม่');
+        logout();
+      }
     });
   };
 
-  // Auto-start if already logged in
-  if (sessionStorage.getItem('adminLoggedIn')) {
-    window.startFirebaseListener();
-  }
+  // Check if user is already logged in
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log('✅ User already logged in:', user.email);
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('adminWrap').style.display = 'flex';
+      window.startFirebaseListener();
+    } else {
+      console.log('⚠️ No user logged in');
+      document.getElementById('loginOverlay').style.display = 'flex';
+      document.getElementById('adminWrap').style.display = 'none';
+    }
+  });
 </script>
 </body>
 </html>
