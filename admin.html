@@ -567,108 +567,16 @@
   </div>
 </div>
 
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-  import { getDatabase, ref, onValue, update, remove } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
-
-  // Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyAmOzOpWmlpMnuNMwqILL0Ohu-OnUkiYD0",
-    authDomain: "friendship-555b9.firebaseapp.com",
-    databaseURL: "https://friendship-555b9-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "friendship-555b9",
-    storageBucket: "friendship-555b9.firebasestorage.app",
-    messagingSenderId: "824496876924",
-    appId: "1:824496876924:web:4682400455bc0c156548f9",
-    measurementId: "G-QW91S62J6Q"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
-
-  console.log('✅ Firebase initialized');
-
-  // Make Firebase functions available globally
-  window.firebaseDB = database;
-  window.firebaseRef = ref;
-  window.firebaseUpdate = update;
-  window.firebaseRemove = remove;
-
-  // Start listening to messages
-  window.startFirebaseListener = function() {
-    console.log('🔥 Starting Firebase listener...');
-    const messagesRef = ref(database, 'messages');
-    
-    onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      console.log('📨 Firebase data received:', data);
-      
-      if (data) {
-        window.cachedMessages = Object.entries(data).map(([key, val]) => ({
-          id: key,
-          ...val
-        }));
-      } else {
-        window.cachedMessages = [];
-      }
-      
-      console.log('💾 Cached messages:', window.cachedMessages);
-      
-      // Render messages
-      if (typeof renderMessages === 'function') {
-        renderMessages();
-      }
-    }, (error) => {
-      console.error('❌ Firebase error:', error);
-    });
-  };
-
-  // Auto-start if already logged in
-  if (sessionStorage.getItem('adminLoggedIn')) {
-    window.startFirebaseListener();
-  }
-</script>
-
 <script>
+  // ประกาศตัวแปร Global ก่อน
   const ADMIN_PASSWORD = 'pancakeismygf';
   let cachedMessages = [];
   let currentFilter = 'all';
   let currentId = null;
 
-  function checkLogin() {
-    const pw = document.getElementById('pwInput').value;
-    if (pw === ADMIN_PASSWORD) {
-      console.log('✅ Login successful');
-      document.getElementById('loginOverlay').style.display = 'none';
-      document.getElementById('adminWrap').style.display = 'flex';
-      sessionStorage.setItem('adminLoggedIn', '1');
-      
-      // Start Firebase listener
-      if (window.startFirebaseListener) {
-        window.startFirebaseListener();
-      }
-    } else {
-      const err = document.getElementById('loginError');
-      err.textContent = '❌ รหัสผ่านไม่ถูกต้อง';
-      document.getElementById('pwInput').style.borderColor = '#f87171';
-      setTimeout(() => {
-        err.textContent = '';
-        document.getElementById('pwInput').style.borderColor = '';
-      }, 3000);
-    }
-  }
-
-  function logout() {
-    sessionStorage.removeItem('adminLoggedIn');
-    location.reload();
-  }
-
-  // Check if already logged in
-  if (sessionStorage.getItem('adminLoggedIn')) {
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('adminWrap').style.display = 'flex';
+  // ประกาศ functions ทั้งหมดก่อน
+  function escHtml(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   function getMessages() {
@@ -676,7 +584,7 @@
   }
 
   function renderMessages() {
-    console.log('🎨 Rendering messages...');
+    console.log('🎨 Rendering messages...', cachedMessages);
     const msgs = getMessages();
     const filtered = currentFilter === 'unread' ? msgs.filter(m => !m.read) : msgs;
 
@@ -723,10 +631,6 @@
     console.log('✅ Messages rendered');
   }
 
-  function escHtml(t) {
-    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
   function setFilter(f) {
     currentFilter = f;
     document.getElementById('filterAll').classList.toggle('active', f === 'all');
@@ -741,7 +645,7 @@
     currentId = id;
 
     // Mark as read in Firebase
-    if (!msg.read) {
+    if (!msg.read && window.firebaseDB) {
       const msgRef = window.firebaseRef(window.firebaseDB, `messages/${id}`);
       await window.firebaseUpdate(msgRef, { read: true });
     }
@@ -761,20 +665,20 @@
     currentId = null;
   }
 
-  document.getElementById('modal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-  });
-
   async function deleteMessage(id) {
     if (!confirm('ลบข้อความนี้?')) return;
     
-    const msgRef = window.firebaseRef(window.firebaseDB, `messages/${id}`);
-    await window.firebaseRemove(msgRef);
+    if (window.firebaseDB) {
+      const msgRef = window.firebaseRef(window.firebaseDB, `messages/${id}`);
+      await window.firebaseRemove(msgRef);
+    }
     
     closeModal();
   }
 
   async function markAllRead() {
+    if (!window.firebaseDB) return;
+    
     const updates = {};
     cachedMessages.forEach(msg => {
       if (!msg.read) {
@@ -785,6 +689,108 @@
     if (Object.keys(updates).length > 0) {
       await window.firebaseUpdate(window.firebaseRef(window.firebaseDB), updates);
     }
+  }
+
+  function checkLogin() {
+    const pw = document.getElementById('pwInput').value;
+    if (pw === ADMIN_PASSWORD) {
+      console.log('✅ Login successful');
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('adminWrap').style.display = 'flex';
+      sessionStorage.setItem('adminLoggedIn', '1');
+      
+      // Start Firebase listener
+      if (window.startFirebaseListener) {
+        window.startFirebaseListener();
+      }
+    } else {
+      const err = document.getElementById('loginError');
+      err.textContent = '❌ รหัสผ่านไม่ถูกต้อง';
+      document.getElementById('pwInput').style.borderColor = '#f87171';
+      setTimeout(() => {
+        err.textContent = '';
+        document.getElementById('pwInput').style.borderColor = '';
+      }, 3000);
+    }
+  }
+
+  function logout() {
+    sessionStorage.removeItem('adminLoggedIn');
+    location.reload();
+  }
+
+  // Event listeners
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // Check if already logged in
+  if (sessionStorage.getItem('adminLoggedIn')) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('adminWrap').style.display = 'flex';
+  }
+</script>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+  import { getDatabase, ref, onValue, update, remove } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmOzOpWmlpMnuNMwqILL0Ohu-OnUkiYD0",
+    authDomain: "friendship-555b9.firebaseapp.com",
+    databaseURL: "https://friendship-555b9-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "friendship-555b9",
+    storageBucket: "friendship-555b9.firebasestorage.app",
+    messagingSenderId: "824496876924",
+    appId: "1:824496876924:web:4682400455bc0c156548f9",
+    measurementId: "G-QW91S62J6Q"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  console.log('✅ Firebase initialized');
+
+  // Make Firebase functions available globally
+  window.firebaseDB = database;
+  window.firebaseRef = ref;
+  window.firebaseUpdate = update;
+  window.firebaseRemove = remove;
+
+  // Start listening to messages
+  window.startFirebaseListener = function() {
+    console.log('🔥 Starting Firebase listener...');
+    const messagesRef = ref(database, 'messages');
+    
+    onValue(messagesRef, (snapshot) => {
+      const data = snapshot.val();
+      console.log('📨 Firebase data received:', data);
+      
+      if (data) {
+        // อัพเดทตัวแปร cachedMessages โดยตรง (ไม่ใช้ window.cachedMessages)
+        cachedMessages = Object.entries(data).map(([key, val]) => ({
+          id: key,
+          ...val
+        }));
+      } else {
+        cachedMessages = [];
+      }
+      
+      console.log('💾 Cached messages updated:', cachedMessages);
+      
+      // เรียก renderMessages ทันที
+      renderMessages();
+    }, (error) => {
+      console.error('❌ Firebase error:', error);
+    });
+  };
+
+  // Auto-start if already logged in
+  if (sessionStorage.getItem('adminLoggedIn')) {
+    window.startFirebaseListener();
   }
 </script>
 </body>
