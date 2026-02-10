@@ -217,6 +217,7 @@
   .send-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(192,132,252,0.4); }
   .send-btn:hover::before { left: 100%; }
   .send-btn:active { transform: translateY(0); }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .success-screen {
     display: none;
@@ -333,6 +334,34 @@
 
 <div class="confetti-container" id="confetti"></div>
 
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+  import { getDatabase, ref, push, set } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmOzOpWmlpMnuNMwqILL0Ohu-OnUkiYD0",
+    authDomain: "friendship-555b9.firebaseapp.com",
+    databaseURL: "https://friendship-555b9-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "friendship-555b9",
+    storageBucket: "friendship-555b9.firebasestorage.app",
+    messagingSenderId: "824496876924",
+    appId: "1:824496876924:web:4682400455bc0c156548f9",
+    measurementId: "G-QW91S62J6Q"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  // Make Firebase functions available globally
+  window.firebaseDB = database;
+  window.firebaseRef = ref;
+  window.firebasePush = push;
+  window.firebaseSet = set;
+</script>
+
 <script>
   const starsEl = document.getElementById('stars');
   for (let i = 0; i < 80; i++) {
@@ -350,7 +379,7 @@
 
   function updateCount() {}
 
-  function sendMessage() {
+  async function sendMessage() {
     const msg = document.getElementById('msgInput').value.trim();
     const name = document.getElementById('nameInput').value.trim();
 
@@ -366,21 +395,34 @@
       return;
     }
 
-    const messages = JSON.parse(localStorage.getItem('inbox') || '[]');
-    const newMsg = {
-      id: Date.now(),
-      name: name || 'ไม่ระบุชื่อ',
-      message: msg,
-      time: new Date().toLocaleString('th-TH'),
-      read: false
-    };
-    messages.push(newMsg);
-    localStorage.setItem('inbox', JSON.stringify(messages));
+    // Disable button while sending
+    const btn = document.querySelector('.send-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ กำลังส่ง...';
 
-    launchConfetti();
+    try {
+      // Save to Firebase
+      const messagesRef = window.firebaseRef(window.firebaseDB, 'messages');
+      const newMessageRef = window.firebasePush(messagesRef);
+      
+      await window.firebaseSet(newMessageRef, {
+        name: name || 'ไม่ระบุชื่อ',
+        message: msg,
+        time: new Date().toLocaleString('th-TH'),
+        timestamp: Date.now(),
+        read: false
+      });
 
-    document.getElementById('formScreen').style.display = 'none';
-    document.getElementById('successScreen').style.display = 'block';
+      launchConfetti();
+
+      document.getElementById('formScreen').style.display = 'none';
+      document.getElementById('successScreen').style.display = 'block';
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('เกิดข้อผิดพลาดในการส่งข้อความ กรุณาลองใหม่อีกครั้ง');
+      btn.disabled = false;
+      btn.innerHTML = '💌 ส่งข้อความ';
+    }
   }
 
   function launchConfetti() {
@@ -409,6 +451,10 @@
     document.getElementById('nameInput').value = '';
     document.getElementById('successScreen').style.display = 'none';
     document.getElementById('formScreen').style.display = 'block';
+    
+    const btn = document.querySelector('.send-btn');
+    btn.disabled = false;
+    btn.innerHTML = '💌 ส่งข้อความ';
   }
 </script>
 </body>
